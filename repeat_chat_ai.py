@@ -22,13 +22,13 @@ def debug(str):
 def clean_text(text):
     return text.strip().strip('"“”')
 
-def build_turn_commands(role, text, idx):
-    commands = [{"type": "print", "content": f"{role}: {text}"}]
+def build_turn_commands(role, text, idx, translation=""):
+    commands = [{"type": "show_message", "role": role, "text": text, "translation": translation}]
     sentences = split_sentences(text)
     for i, sentence in enumerate(sentences):
         filename = f"tmp_{idx}_{i}.mp3"
         text_to_speech(sentence, filename)
-        commands.append({"type": "print", "content": f"{role}: {sentence}"})
+        commands.append({"type": "show_sentence", "role": role, "text": sentence})
         commands.append({"type": "speak", "file": filename})
         commands.append({"type": "pause", "repeat": {"type": "speak", "file": filename}})
         commands.append({"type": "cleanup", "file": filename})
@@ -65,6 +65,7 @@ def generate_chat_message(role, history, scenario):
         f"The scene is: {scenario['scene']}.\n"
         "Only reply with your line. Do not include names or role descriptions.\n"
         f"All your responses must be in {LEARNER_LANGUAGE}.\n"
+        f"Your response must be two lines. First line: natural sentence in {LEARNER_LANGUAGE}. Second line: {FEEDBACK_LANGUAGE} translation.\n"
     )
     messages = [
         {
@@ -79,7 +80,12 @@ def generate_chat_message(role, history, scenario):
         temperature=0.9,
     )
     debug(f'message has generated')
-    return clean_text(response.choices[0].message.content)
+    lines = response.choices[0].message.content.strip().split("\n", 1)
+    text = clean_text(lines[0])
+    translation = clean_text(lines[1]) if len(lines) > 1 else ""
+    if not translation:
+        print("Warning: No translation found in response")
+    return text, translation
 
 def text_to_speech(text, filename):
     try:
@@ -144,13 +150,25 @@ def do_command(command, output_queue):
             debug(f'{command["file"]} has been removed')
         except FileNotFoundError:
             pass
+    elif command["type"] == "show_message":
+        print("--------")
+        print(f'{command["role"]}: {command["text"]}')
+        print(f'→ {command["translation"]}')
+    elif command["type"] == "show_sentence":
+        print("--------")
+        print(f'{command["role"]}: {command["text"]}')
 
 def repl(scenario, first_message):
     history = []
     output_queue = deque()
     role = "A"
-    history.append({"role": role, "content": first_message})
-    output_queue.extend(build_turn_commands(role, first_message, 0))
+    lines = first_message.strip().split("\n", 1)
+    text = clean_text(lines[0])
+    translation = clean_text(lines[1]) if len(lines) > 1 else ""
+    if not translation:
+        print("Warning: No translation found in first message")
+    history.append({"role": role, "content": text, "translation": translation})
+    output_queue.extend(build_turn_commands(role, text, 0, translation))
 
     prefetching = False
     next_turn_data = None
@@ -164,9 +182,9 @@ def repl(scenario, first_message):
 
                 def do_prefetch(captured_idx):
                     nonlocal next_turn_data, prefetching
-                    next_text = generate_chat_message(next_role, history, scenario)
-                    history.append({"role": next_role, "content": next_text})
-                    commands = build_turn_commands(next_role, next_text, captured_idx)
+                    next_text, next_translation = generate_chat_message(next_role, history, scenario)
+                    history.append({"role": next_role, "content": next_text, "translation": next_translation})
+                    commands = build_turn_commands(next_role, next_text, captured_idx, next_translation)
                     with queue_lock:
                         next_turn_data = {"role": next_role, "idx": captured_idx, "commands": commands}
                         prefetching = False
@@ -196,6 +214,7 @@ def generate_scenario(scene):
     system_prompt = (
         f"Given the scene '{scene}', create a natural conversation setup with two roles.\n"
         f"The output must be entirely in {LEARNER_LANGUAGE}, including role descriptions and the sample line.\n"
+        f"Your sample line must be two lines: first in {LEARNER_LANGUAGE}, second is a {FEEDBACK_LANGUAGE} translation.\n"
         f"Output format:\n"
         f"Scene: <scene>\n"
         f"Role A: <description>\n"
@@ -232,12 +251,21 @@ def main():
         sys.exit(0)
     try:
         scene = sys.argv[1] if len(sys.argv) > 1 else "at a café"
-        scenario, first_message = generate_scenario(scene)
+        scenario, first_text = generate_scenario(scene)
         print(f'scene: {scenario["scene"]}')
         print(f'role A: {scenario["roles"]["A"]}')
         print(f'role B: {scenario["roles"]["B"]}')
-        # print(scenario)
-        repl(scenario, first_message)
+        lines = first_text.strip().split("\n", 1)
+        text = clean_text(lines[0])
+        translation = clean_text(lines[1]) if len(lines) > 1 else ""
+        if not translation:
+            print("Warning: No translation found in first message")
+        history = []
+        output_queue = deque()
+        role = "A"
+        history.append({"role": role, "content": text, "translation": translation})
+        output_queue.extend(build_turn_commands(role, text, 0, translation))
+        repl(scenario, first_text)
     except KeyboardInterrupt:
         print("\nExiting repeat-chat-ai")
 
