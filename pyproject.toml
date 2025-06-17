@@ -1,0 +1,13 @@
+[project]
+name = "repeat-chat-ai"
+version = "0.1.0"
+description = "Interactive AI conversation practice tool with TTS"
+dependencies = ["openai"]
+requires-python = ">=3.8"
+
+[project.scripts]
+repeat-chat-ai = "repeat_chat_ai:main"
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
