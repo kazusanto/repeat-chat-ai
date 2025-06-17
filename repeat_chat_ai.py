@@ -15,6 +15,15 @@ _debug_ = False
 LEARNER_LANGUAGE = "English"
 FEEDBACK_LANGUAGE = "Japanese"
 
+try:
+    client = openai.OpenAI()  # Attempt to use OPENAI_API_KEY from env
+except openai.OpenAIError:
+    api_key = input("Enter your OpenAI API key: ")
+    client = openai.OpenAI(api_key=api_key, timeout=10)
+
+queue_lock = threading.Lock()
+is_first_prompt = True
+
 def debug(str):
     if _debug_:
         print(f'**** {str}')
@@ -33,14 +42,6 @@ def build_turn_commands(role, text, idx, translation=""):
         commands.append({"type": "pause", "repeat": {"type": "speak", "file": filename}})
         commands.append({"type": "cleanup", "file": filename})
     return commands
-
-try:
-    client = openai.OpenAI()  # Attempt to use OPENAI_API_KEY from env
-except openai.OpenAIError:
-    api_key = input("Enter your OpenAI API key: ")
-    client = openai.OpenAI(api_key=api_key, timeout=10)
-
-queue_lock = threading.Lock()
 
 def build_history_for(role, history):
     """
@@ -67,6 +68,8 @@ def generate_chat_message(role, history, scenario):
         f"All your responses must be in {LEARNER_LANGUAGE}.\n"
         f"Your response must be two lines. First line: natural sentence in {LEARNER_LANGUAGE}. Second line: {FEEDBACK_LANGUAGE} translation.\n"
     )
+    if not history:
+        system_prompt += f"\nYou will start the conversation."
     messages = [
         {
             "role": "system",
@@ -126,8 +129,6 @@ def get_key():
     finally:
         termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
 
-first_prompt = True
-
 def do_command(command, output_queue):
     if command["type"] == "print":
         print("--------")
@@ -135,9 +136,9 @@ def do_command(command, output_queue):
     elif command["type"] == "speak":
         play_audio(command["file"])
     elif command["type"] == "pause":
-        global first_prompt
-        prompt = "[press space to repeat, enter for next]> " if first_prompt else "> "
-        first_prompt = False
+        global is_first_prompt
+        prompt = "[press space to repeat, enter for next]> " if is_first_prompt else "> "
+        is_first_prompt = False
         print(prompt, end="", flush=True)
         key = get_key()
         print()
@@ -158,15 +159,11 @@ def do_command(command, output_queue):
         print("--------")
         print(f'{command["role"]}: {command["text"]}')
 
-def repl(scenario, first_message):
+def repl(scenario):
     history = []
     output_queue = deque()
     role = "A"
-    lines = first_message.strip().split("\n", 1)
-    text = clean_text(lines[0])
-    translation = clean_text(lines[1]) if len(lines) > 1 else ""
-    if not translation:
-        print("Warning: No translation found in first message")
+    text, translation = generate_chat_message(role, history, scenario)
     history.append({"role": role, "content": text, "translation": translation})
     output_queue.extend(build_turn_commands(role, text, 0, translation))
 
@@ -213,13 +210,11 @@ def repl(scenario, first_message):
 def generate_scenario(scene):
     system_prompt = (
         f"Given the scene '{scene}', create a natural conversation setup with two roles.\n"
-        f"The output must be entirely in {LEARNER_LANGUAGE}, including role descriptions and the sample line.\n"
-        f"Your sample line must be two lines: first in {LEARNER_LANGUAGE}, second is a {FEEDBACK_LANGUAGE} translation.\n"
+        f"The output must be entirely in {LEARNER_LANGUAGE}, including role descriptions.\n"
         f"Output format:\n"
         f"Scene: <scene>\n"
         f"Role A: <description>\n"
         f"Role B: <description>\n"
-        f"A: <first line>\n"
     )
     response = client.chat.completions.create(
         model="gpt-4.1-mini",
@@ -229,7 +224,7 @@ def generate_scenario(scene):
     )
     text = response.choices[0].message.content.strip()
     match = re.search(
-        r"Scene:\s*(.+?)\nRole A:\s*(.+?)\nRole B:\s*(.+?)\nA:\s*(.+)",
+        r"Scene:\s*(.+?)\nRole A:\s*(.+?)\nRole B:\s*(.+?)\n*$",
         text,
         re.DOTALL
     )
@@ -240,7 +235,7 @@ def generate_scenario(scene):
                 "A": match.group(2).strip(),
                 "B": match.group(3).strip(),
             }
-        }, clean_text(match.group(4))
+        }
     else:
         raise ValueError("Failed to parse scenario from response.")
 
@@ -251,21 +246,11 @@ def main():
         sys.exit(0)
     try:
         scene = sys.argv[1] if len(sys.argv) > 1 else "at a café"
-        scenario, first_text = generate_scenario(scene)
+        scenario = generate_scenario(scene)
         print(f'scene: {scenario["scene"]}')
         print(f'role A: {scenario["roles"]["A"]}')
         print(f'role B: {scenario["roles"]["B"]}')
-        lines = first_text.strip().split("\n", 1)
-        text = clean_text(lines[0])
-        translation = clean_text(lines[1]) if len(lines) > 1 else ""
-        if not translation:
-            print("Warning: No translation found in first message")
-        history = []
-        output_queue = deque()
-        role = "A"
-        history.append({"role": role, "content": text, "translation": translation})
-        output_queue.extend(build_turn_commands(role, text, 0, translation))
-        repl(scenario, first_text)
+        repl(scenario)
     except KeyboardInterrupt:
         print("\nExiting repeat-chat-ai")
 
