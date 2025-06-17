@@ -9,6 +9,7 @@ import re
 from collections import deque
 import threading
 import time
+import atexit
 
 _debug_ = False
 
@@ -21,12 +22,26 @@ except openai.OpenAIError:
     api_key = input("Enter your OpenAI API key: ")
     client = openai.OpenAI(api_key=api_key, timeout=10)
 
+cleanup_files = []
 queue_lock = threading.Lock()
 is_first_prompt = True
 
 def debug(str):
     if _debug_:
         print(f'**** {str}')
+
+def mark_for_cleanup(file):
+    cleanup_files.append(file)
+
+def final_cleanup():
+    for file in cleanup_files:
+        try:
+            os.remove(file)
+            debug(f"Final cleanup: {file} deleted")
+        except FileNotFoundError:
+            pass
+
+atexit.register(final_cleanup)
 
 def clean_text(text):
     return text.strip().strip('"“”')
@@ -99,6 +114,7 @@ def text_to_speech(text, filename):
             input=text,
             timeout=10
         )
+        mark_for_cleanup(filename)
         with open(filename, "wb") as f:
             f.write(speech_response.content)
         debug(f'{filename} has created.')
@@ -146,6 +162,7 @@ def do_command(command, output_queue):
             output_queue.appendleft(command)  # pause again
             output_queue.appendleft(command["repeat"])  # repeat the associated action
     elif command["type"] == "cleanup":
+        # still attempt immediate cleanup if possible
         try:
             os.remove(command["file"])
             debug(f'{command["file"]} has been removed')
