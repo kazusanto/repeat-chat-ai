@@ -12,7 +12,7 @@ import atexit
 os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
 import pygame
 
-_debug_ = False
+DEBUG = False
 
 LEARNER_LANGUAGE = "English"
 FEEDBACK_LANGUAGE = "Japanese"
@@ -23,7 +23,7 @@ MALE_VOICES = ["alloy", "fable"]
 FEMALE_VOICES = ["nova", "shimmer"]
 
 try:
-    client = openai.OpenAI()  # Attempt to use OPENAI_API_KEY from env
+    client = openai.OpenAI(timeout=10)  # Attempt to use OPENAI_API_KEY from env
 except openai.OpenAIError:
     api_key = input("Enter your OpenAI API key: ")
     client = openai.OpenAI(api_key=api_key, timeout=10)
@@ -32,9 +32,9 @@ cleanup_files = []
 queue_lock = threading.Lock()
 is_first_prompt = True
 
-def debug(str):
-    if _debug_:
-        print(f'**** {str}')
+def debug_out(str):
+    if DEBUG:
+        print(f'[debug] {str}', file=sys.stderr)
 
 def mark_for_cleanup(file):
     cleanup_files.append(file)
@@ -43,7 +43,7 @@ def final_cleanup():
     for file in cleanup_files:
         try:
             os.remove(file)
-            debug(f"Final cleanup: {file} deleted")
+            debug_out(f"Final cleanup: {file} deleted")
         except FileNotFoundError:
             pass
 
@@ -65,24 +65,22 @@ def build_turn_commands(idx, role, text, translation="", voice="alloy"):
 
 def fetch_text_to_speech(text, filename, voice):
     try:
-        debug(f'fetch_text_to_speech("{text}", {filename}, {voice})')
+        debug_out(f'fetch_text_to_speech("{text}", {filename}, {voice})')
         speech_response = client.audio.speech.create(
             model="tts-1",
             voice=voice,
-            input=text,
-            timeout=10
+            input=text
         )
         mark_for_cleanup(filename)
         with open(filename, "wb") as f:
             f.write(speech_response.content)
-        debug(f'{filename} has created.')
+        debug_out(f'{filename} has created.')
     except Exception as e:
         print(str(e))
 
 def play_audio(filename):
-    debug(f'play_audio({filename})')
+    debug_out(f'play_audio({filename})')
     try:
-        pygame.mixer.init()
         pygame.mixer.music.load(filename)
         pygame.mixer.music.play()
     except Exception as e:
@@ -108,10 +106,10 @@ def get_key():
 
 def do_command(command, output_queue):
     if command["type"] == "show_message":
-        debug("--------")
-        debug(f'{command["role"]}: {command["text"]}')
-        debug(f'→ {command["translation"]}')
-        debug("--------")
+        debug_out("--------")
+        debug_out(f'{command["role"]}: {command["text"]}')
+        debug_out(f'→ {command["translation"]}')
+        debug_out("--------")
     elif command["type"] == "show_sentence":
         print(f'{command["role"]}: {command["text"]}')
         if "translation" in command and command["translation"]:
@@ -131,7 +129,7 @@ def do_command(command, output_queue):
     elif command["type"] == "cleanup":
         try:
             os.remove(command["file"])
-            debug(f'{command["file"]} has been removed')
+            debug_out(f'{command["file"]} has been removed')
         except FileNotFoundError:
             pass
 
@@ -229,7 +227,7 @@ Make sure the format and language rules are followed strictly.
         temperature=0.8,
     )
     text = response.choices[0].message.content.strip()
-    debug(text)
+    debug_out(text)
     lines = text.splitlines()
     scene_title = ""
     roles = {}
@@ -269,7 +267,7 @@ Make sure the format and language rules are followed strictly.
         "voices": voices,
         "script": script,
     }
-    debug(scenario)
+    debug_out(scenario)
     return scenario
 
 def main():
@@ -278,6 +276,7 @@ def main():
         print("If no scene is provided, defaults to 'at a café'.")
         sys.exit(0)
     try:
+        pygame.mixer.init()
         scene = sys.argv[1] if len(sys.argv) > 1 else "at a café"
         scenario = generate_scenario(scene)
         print(f'scene: {scenario["scene"]}')
@@ -286,6 +285,8 @@ def main():
         repl(scenario)
     except KeyboardInterrupt:
         print("\nExiting repeat-chat-ai")
+    except Exception as e:
+        print(str(e))
 
 if __name__ == "__main__":
     main()
