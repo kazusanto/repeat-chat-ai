@@ -104,9 +104,14 @@ def get_key():
         termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
 
 def do_command(command, output_queue):
-    if command["type"] == "print":
+    if command["type"] == "show_message":
         print("--------")
-        print(command["content"])
+        # print(f'{command["role"]}: {command["text"]}')
+        # print(f'→ {command["translation"]}')
+        print(f'{command["role"]}: {command["translation"]}')
+        print("--------")
+    elif command["type"] == "show_sentence":
+        print(f'{command["role"]}: {command["text"]}')
     elif command["type"] == "speak":
         play_audio(command["file"])
     elif command["type"] == "pause":
@@ -125,13 +130,6 @@ def do_command(command, output_queue):
             debug(f'{command["file"]} has been removed')
         except FileNotFoundError:
             pass
-    elif command["type"] == "show_message":
-        print("--------")
-        print(f'{command["role"]}: {command["text"]}')
-        print(f'→ {command["translation"]}')
-    elif command["type"] == "show_sentence":
-        print("--------")
-        print(f'{command["role"]}: {command["text"]}')
 
 def repl(scenario):
     script = scenario.get("script", [])

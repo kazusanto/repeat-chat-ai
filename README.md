@@ -57,25 +57,26 @@ If no scene is provided, defaults to 'at a café'.
 ## Example
 
 ```terminal
-> repeat-chat-ai 'at a hospital'
-scene: At a hospital
-role A: Nurse assisting patients and providing information
-role B: Patient seeking guidance about their upcoming surgery
+> ./repeat_chat_ai.py 'on the phone'
+scene: A customer calls a hotel to make a reservation
+role A: A customer looking to book a room for a weekend stay.
+role B: A hotel receptionist assisting with reservations.
 --------
-A: Good morning! How are you feeling today? Is there anything I can help you with before your surgery?
+A: こんにちは、今週末の部屋を予約したいのですが。
 --------
-A: Good morning!
+A: Hello, I would like to book a room for this weekend.
 [press space to repeat, enter for next]>
 --------
-A: How are you feeling today?
+B: かしこまりました。ご宿泊の日程を教えていただけますか？
+--------
+B: Certainly, ma'am.
+>
+B: What dates will you be staying with us?
 >
 --------
-A: Is there anything I can help you with before your surgery?
->
+A: 金曜日の夜から日曜日の朝まで部屋が必要です。
 --------
-B: Good morning! I’m a little nervous about the surgery. Could you tell me what I need to do to prepare for it?
---------
-B: Good morning!
+A: I need a room from Friday night to Sunday morning.
 >
 ```
 
