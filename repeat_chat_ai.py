@@ -12,7 +12,7 @@ import time
 import atexit
 import random
 
-_debug_ = True
+_debug_ = False
 
 LEARNER_LANGUAGE = "English"
 FEEDBACK_LANGUAGE = "Japanese"
@@ -277,8 +277,8 @@ def main():
         scene = sys.argv[1] if len(sys.argv) > 1 else "at a café"
         scenario = generate_scenario(scene)
         print(f'scene: {scenario["scene"]}')
-        print(f'role A: {scenario["roles"]["A"]} ({scenario["voices"]["A"]})')
-        print(f'role B: {scenario["roles"]["B"]} ({scenario["voices"]["B"]})')
+        print(f'role A: {scenario["roles"]["A"]}')
+        print(f'role B: {scenario["roles"]["B"]}')
         repl(scenario)
     except KeyboardInterrupt:
         print("\nExiting repeat-chat-ai")
