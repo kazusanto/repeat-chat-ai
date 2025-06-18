@@ -201,8 +201,6 @@ Formatting rules:
    Keep the dialogue realistic and context-appropriate. Avoid overly enthusiastic or exaggerated expressions (e.g., "Great!", "Awesome!") unless the character's personality justifies it.
 5. Each turn must follow this two-line format exactly:
    A: <sentence in {LEARNER_LANGUAGE} | ... >
-5. Each turn must follow this two-line format exactly:
-   A: <sentence in {LEARNER_LANGUAGE} | ... >
    → <translation in {FEEDBACK_LANGUAGE} | ... >
    Use "|" to split each natural sentence segment. Ensure each natural {LEARNER_LANGUAGE} segment strictly matches the corresponding translated segment in order.
 6. Start with A. Do not include explanations, commentary, or blank lines.
