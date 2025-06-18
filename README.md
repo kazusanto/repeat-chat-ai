@@ -23,6 +23,7 @@ Default settings support Japanese speakers learning English, but other language 
 
 - Python 3.8 or later
 - OpenAI Python client library 1.88.0 or later
+- PyGame library 2.6.1 or later
 - pipx installed ([installation guide](https://pipxproject.github.io/pipx/installation/))
 - An OpenAI API key (set via the `OPENAI_API_KEY` environment variable)
 
@@ -49,7 +50,7 @@ pipx install .
 
 ## How to use
 
-```bash
+```terminal
 repeat-chat-ai [<scene>]
 ```
 If no scene is provided, defaults to 'at a café'.

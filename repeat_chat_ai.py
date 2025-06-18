@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-
 import openai
 import os
 import sys
@@ -10,7 +9,8 @@ from collections import deque
 import threading
 import time
 import atexit
-import random
+os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
+import pygame
 
 _debug_ = False
 
@@ -79,11 +79,12 @@ def fetch_text_to_speech(text, filename, voice):
 
 def play_audio(filename):
     debug(f'play_audio({filename})')
-    if not os.path.exists(filename) or os.path.getsize(filename) < 100:
-        print(f"Warning: Skipping playback of invalid or empty file: {filename}")
-        return
-    os.system(f'afplay "{filename}"')
-    debug(f'{filename} has played')
+    try:
+        pygame.mixer.init()
+        pygame.mixer.music.load(filename)
+        pygame.mixer.music.play()
+    except Exception as e:
+        print(f"Audio playback failed: {e}")
 
 def clean_text(text):
     return text.strip().strip('"“”')

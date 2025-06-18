@@ -2,7 +2,7 @@
 name = "repeat-chat-ai"
 version = "0.1.0"
 description = "Interactive AI conversation practice tool with TTS"
-dependencies = ["openai"]
+dependencies = ["openai", "pygame"]
 requires-python = ">=3.8"
 
 [project.scripts]
