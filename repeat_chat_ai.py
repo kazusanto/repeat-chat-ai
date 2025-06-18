@@ -10,6 +10,7 @@ from collections import deque
 import threading
 import time
 import atexit
+import random
 
 _debug_ = True
 
@@ -17,6 +18,9 @@ LEARNER_LANGUAGE = "English"
 FEEDBACK_LANGUAGE = "Japanese"
 
 OPENAI_MODEL = "gpt-4.1-mini"
+
+MALE_VOICES = ["alloy", "fable"]
+FEMALE_VOICES = ["nova", "shimmer"]
 
 try:
     client = openai.OpenAI()  # Attempt to use OPENAI_API_KEY from env
@@ -45,24 +49,24 @@ def final_cleanup():
 
 atexit.register(final_cleanup)
 
-def build_turn_commands(idx, role, text, translation=""):
+def build_turn_commands(idx, role, text, translation="", voice="alloy"):
     commands = [{"type": "show_message", "role": role, "text": text, "translation": translation}]
     sentences = split_sentences(text)
     for i, sentence in enumerate(sentences):
         filename = f"tmp_{idx}_{i}.mp3"
-        write_tts_file(sentence, filename)
+        fetch_text_to_speech(sentence, filename, voice)
         commands.append({"type": "show_sentence", "role": role, "text": sentence})
         commands.append({"type": "speak", "file": filename})
         commands.append({"type": "pause", "repeat": {"type": "speak", "file": filename}})
         commands.append({"type": "cleanup", "file": filename})
     return commands
 
-def write_tts_file(text, filename):
+def fetch_text_to_speech(text, filename, voice):
     try:
-        debug(f'write_tts_file("{text}", {filename})')
+        debug(f'fetch_text_to_speech("{text}", {filename}, {voice})')
         speech_response = client.audio.speech.create(
             model="tts-1",
-            voice="alloy",
+            voice=voice,
             input=text,
             timeout=10
         )
@@ -116,7 +120,6 @@ def do_command(command, output_queue):
             output_queue.appendleft(command)  # pause again
             output_queue.appendleft(command["repeat"])  # repeat the associated action
     elif command["type"] == "cleanup":
-        # still attempt immediate cleanup if possible
         try:
             os.remove(command["file"])
             debug(f'{command["file"]} has been removed')
@@ -135,7 +138,6 @@ def repl(scenario):
     output_queue = deque()
     next_idx = 0
     prefetching = False
-    debug(script)
 
     try:
         while True:
@@ -146,7 +148,9 @@ def repl(scenario):
                     nonlocal prefetching
                     if captured_idx < len(script):
                         turn = script[captured_idx]
-                        commands = build_turn_commands(captured_idx, turn["role"], turn["content"], turn.get("translation", ""))
+                        role = turn['role']
+                        voice = scenario["voices"].get(role, MALE_VOICES[0])
+                        commands = build_turn_commands(captured_idx, turn["role"], turn["content"], turn.get("translation", ""), voice)
                         output_queue.extend(commands)
                     prefetching = False
 
@@ -154,7 +158,7 @@ def repl(scenario):
                 next_idx += 1
 
             if not output_queue and next_idx >= len(script) and not prefetching:
-                print("\nEnd of conversation")
+                print("Finished.")
                 break
 
             if output_queue:
@@ -170,35 +174,49 @@ def repl(scenario):
         print("\nExiting repeat-chat-ai")
 
 def generate_scenario(scene):
-    system_prompt = (
-        f"You are creating a conversation script for language learning.\n\n"
-        f"Scene topic: \"{scene}\"\n\n"
-        f"Language rules:\n"
-        f"- Use {LEARNER_LANGUAGE} for the characters' dialogue (first line of each turn).\n"
-        f"- Use {FEEDBACK_LANGUAGE} for the translation (second line of each turn).\n"
-        f"- Use {LEARNER_LANGUAGE} for the scene and role descriptions.\n\n"
-        f"Formatting rules:\n"
-        f"1. Output the scene description:\n"
-        f"   Scene: <one-line scene description in {LEARNER_LANGUAGE}>\n"
-        f"2. Output the two roles:\n"
-        f"   Role A: <A's character description in {LEARNER_LANGUAGE}>\n"
-        f"   Role B: <B's character description in {LEARNER_LANGUAGE}>\n"
-        f"3. Then write 6-10 turns of conversation, alternating A and B.\n"
-        f"4. Each turn must follow this two-line format exactly:\n"
-        f"   A: <sentence in {LEARNER_LANGUAGE}>\n"
-        f"   → <translation in {FEEDBACK_LANGUAGE}>\n"
-        f"5. Start with A. Do not include explanations, commentary, or blank lines.\n\n"
-        f"Example (when {LEARNER_LANGUAGE} = English and {FEEDBACK_LANGUAGE} = Japanese):\n\n"
-        f"Scene: At a café\n"
-        f"Role A: A university student studying for exams.\n"
-        f"Role B: A barista who loves to chat with customers.\n\n"
-        f"A: Do you have any new seasonal drinks today?\n"
-        f"→ 今日のおすすめの季節限定ドリンクはありますか？\n\n"
-        f"B: Yes! We have a maple cinnamon latte.\n"
-        f"→ はい、メープルシナモンラテがありますよ。\n\n"
-        f"...\n\n"
-        f"Make sure the format and language rules are followed strictly."
-    )
+    system_prompt = (f"""
+You are creating a conversation script for language learning.
+
+Scene topic: \"{scene}\"
+
+Language rules:
+- Use {LEARNER_LANGUAGE} for the characters' dialogue (first line of each turn).
+- Use {FEEDBACK_LANGUAGE} for the translation (second line of each turn).
+- Use {LEARNER_LANGUAGE} for the scene and role descriptions.
+
+Formatting rules:
+
+1. Output the scene description:
+   Scene: <one-line scene description in {LEARNER_LANGUAGE}>
+2. Output the two roles:
+   Role A: <A's character description in {LEARNER_LANGUAGE}>
+   Role B: <B's character description in {LEARNER_LANGUAGE}>
+3. Output the two voice types:
+   Voice A: <A's voice type as male or female>
+   Voice B: <B's voice type as male or female>
+4. Then write 6-12 turns of conversation, alternating A and B.
+   Make sure the dialogue flows naturally and ends with a reasonable conclusion, as it would in a real-life interaction.
+5. Each turn must follow this two-line format exactly:
+   A: <sentence in {LEARNER_LANGUAGE}>
+   → <translation in {FEEDBACK_LANGUAGE}>
+6. Start with A. Do not include explanations, commentary, or blank lines.
+
+Example (when {LEARNER_LANGUAGE} = English and {FEEDBACK_LANGUAGE} = Japanese):
+
+Scene: At a café
+Role A: A university student studying for exams.
+Role B: A barista who loves to chat with customers.
+Voice A: female
+Voice B: male
+
+A: Do you have any new seasonal drinks today?
+→ 今日のおすすめの季節限定ドリンクはありますか？
+
+B: Yes! We have a maple cinnamon latte.
+→ はい、メープルシナモンラテがありますよ。
+...
+Make sure the format and language rules are followed strictly.
+""")
 
     response = client.chat.completions.create(
         model=OPENAI_MODEL,
@@ -207,9 +225,12 @@ def generate_scenario(scene):
         temperature=0.8,
     )
     text = response.choices[0].message.content.strip()
+    debug(text)
     lines = text.splitlines()
     scene_title = ""
     roles = {}
+    gender = {}
+    voices = {}
     script = []
 
     i = 0
@@ -221,6 +242,10 @@ def generate_scenario(scene):
             roles["A"] = line[len("Role A:"):].strip()
         elif line.startswith("Role B:"):
             roles["B"] = line[len("Role B:"):].strip()
+        elif line.startswith("Voice A:"):
+            gender["A"] = line[len("Voice A:"):].strip()
+        elif line.startswith("Voice B:"):
+            gender["B"] = line[len("Voice B:"):].strip()
         elif line.startswith("A:") or line.startswith("B:"):
             role = line[0]
             text = clean_text(line[2:].strip())
@@ -231,11 +256,17 @@ def generate_scenario(scene):
             script.append({"role": role, "content": text, "translation": translation})
         i += 1
 
-    return {
+    voices["A"] = FEMALE_VOICES[0] if gender["A"].lower() == "female" else MALE_VOICES[0]
+    voices["B"] = FEMALE_VOICES[1] if gender["B"].lower() == "female" else MALE_VOICES[1]
+
+    scenario = {
         "scene": scene_title,
         "roles": roles,
+        "voices": voices,
         "script": script,
     }
+    debug(scenario)
+    return scenario
 
 def main():
     if len(sys.argv) > 1 and sys.argv[1] in ("-h", "--help"):
@@ -246,8 +277,8 @@ def main():
         scene = sys.argv[1] if len(sys.argv) > 1 else "at a café"
         scenario = generate_scenario(scene)
         print(f'scene: {scenario["scene"]}')
-        print(f'role A: {scenario["roles"]["A"]}')
-        print(f'role B: {scenario["roles"]["B"]}')
+        print(f'role A: {scenario["roles"]["A"]} ({scenario["voices"]["A"]})')
+        print(f'role B: {scenario["roles"]["B"]} ({scenario["voices"]["B"]})')
         repl(scenario)
     except KeyboardInterrupt:
         print("\nExiting repeat-chat-ai")
