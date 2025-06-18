@@ -52,10 +52,12 @@ atexit.register(final_cleanup)
 def build_turn_commands(idx, role, text, translation="", voice="alloy"):
     commands = [{"type": "show_message", "role": role, "text": text, "translation": translation}]
     sentences = split_sentences(text)
+    translations = split_sentences(translation)
     for i, sentence in enumerate(sentences):
+        translated = translations[i] if i < len(translations) else ""
         filename = f"tmp_{idx}_{i}.mp3"
         fetch_text_to_speech(sentence, filename, voice)
-        commands.append({"type": "show_sentence", "role": role, "text": sentence})
+        commands.append({"type": "show_sentence", "role": role, "text": sentence, "translation": translated})
         commands.append({"type": "speak", "file": filename})
         commands.append({"type": "pause", "repeat": {"type": "speak", "file": filename}})
         commands.append({"type": "cleanup", "file": filename})
@@ -90,7 +92,7 @@ def clean_text(text):
     return text.strip().strip('"“”')
 
 def split_sentences(text):
-    return [s.strip() for s in re.findall(r'[^.!?]+[.!?]', text)]
+    return [s.strip() for s in text.split("|")]
 
 def get_key():
     fd = sys.stdin.fileno()
@@ -106,13 +108,14 @@ def get_key():
 
 def do_command(command, output_queue):
     if command["type"] == "show_message":
-        print("--------")
-        # print(f'{command["role"]}: {command["text"]}')
-        # print(f'→ {command["translation"]}')
-        print(f'{command["role"]}: {command["translation"]}')
-        print("--------")
+        debug("--------")
+        debug(f'{command["role"]}: {command["text"]}')
+        debug(f'→ {command["translation"]}')
+        debug("--------")
     elif command["type"] == "show_sentence":
         print(f'{command["role"]}: {command["text"]}')
+        if "translation" in command and command["translation"]:
+            print(f'→ {command["translation"]}')
     elif command["type"] == "speak":
         play_audio(command["file"])
     elif command["type"] == "pause":
@@ -193,11 +196,15 @@ Formatting rules:
 3. Output the two voice types:
    Voice A: <A's voice type as male or female>
    Voice B: <B's voice type as male or female>
-4. Then write 6-12 turns of conversation, alternating A and B.
+4. Then write 10-20 turns of conversation, alternating A and B.
    Make sure the dialogue flows naturally and ends with a reasonable conclusion, as it would in a real-life interaction.
+   Keep the dialogue realistic and context-appropriate. Avoid overly enthusiastic or exaggerated expressions (e.g., "Great!", "Awesome!") unless the character's personality justifies it.
 5. Each turn must follow this two-line format exactly:
-   A: <sentence in {LEARNER_LANGUAGE}>
-   → <translation in {FEEDBACK_LANGUAGE}>
+   A: <sentence in {LEARNER_LANGUAGE} | ... >
+5. Each turn must follow this two-line format exactly:
+   A: <sentence in {LEARNER_LANGUAGE} | ... >
+   → <translation in {FEEDBACK_LANGUAGE} | ... >
+   Use "|" to split each natural sentence segment. Ensure each natural {LEARNER_LANGUAGE} segment strictly matches the corresponding translated segment in order.
 6. Start with A. Do not include explanations, commentary, or blank lines.
 
 Example (when {LEARNER_LANGUAGE} = English and {FEEDBACK_LANGUAGE} = Japanese):
@@ -208,11 +215,11 @@ Role B: A barista who loves to chat with customers.
 Voice A: female
 Voice B: male
 
-A: Do you have any new seasonal drinks today?
-→ 今日のおすすめの季節限定ドリンクはありますか？
+A: Do you have any new seasonal drinks today? | I'm in the mood for something sweet.
+→ 今日のおすすめの季節限定ドリンクはありますか？ | 甘いものが飲みたい気分なんです。
 
-B: Yes! We have a maple cinnamon latte.
-→ はい、メープルシナモンラテがありますよ。
+B: Yes! We have a maple cinnamon latte. | It's perfect for this chilly weather.
+→ はい、メープルシナモンラテがありますよ。 | この肌寒い季節にぴったりです。
 ...
 Make sure the format and language rules are followed strictly.
 """)

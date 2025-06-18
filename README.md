@@ -59,25 +59,32 @@ If no scene is provided, defaults to 'at a café'.
 
 ```terminal
 > ./repeat_chat_ai.py 'on the phone'
-scene: A customer calls a hotel to make a reservation
-role A: A customer looking to book a room for a weekend stay.
-role B: A hotel receptionist assisting with reservations.
---------
-A: こんにちは、今週末の部屋を予約したいのですが。
---------
-A: Hello, I would like to book a room for this weekend.
+scene: Making an appointment on the phone
+role A: A customer trying to book a haircut appointment.
+role B: A receptionist at a hair salon.
+A: Hello, I would like to make an appointment for a haircut.
+→ こんにちは、ヘアカットの予約をしたいのですが。
 [press space to repeat, enter for next]>
---------
-B: かしこまりました。ご宿泊の日程を教えていただけますか？
---------
-B: Certainly, ma'am.
+A: Do you have any openings this week?
+→ 今週の空きはありますか？
 >
-B: What dates will you be staying with us?
+B: Hello! Yes, we do have some available slots.
+→ こんにちは！はい、いくつか空いている時間があります。
 >
---------
-A: 金曜日の夜から日曜日の朝まで部屋が必要です。
---------
-A: I need a room from Friday night to Sunday morning.
+B: What day were you thinking about?
+→ 何曜日をお考えですか？
+>
+A: I was hoping for Thursday afternoon, if possible.
+→ 木曜日の午後がいいのですが、可能でしょうか。
+>
+A: Around 3 PM, maybe?
+→ 3時ごろでお願いします。
+>
+B: Let me check.
+→ 確認しますね。
+>
+B: Yes, we have a 3 PM appointment available on Thursday.
+→ はい、木曜日の3時に空きがあります。
 >
 ```
 
