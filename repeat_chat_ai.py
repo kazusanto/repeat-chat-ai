@@ -183,14 +183,18 @@ Language rules:
 - Use {LEARNER_LANGUAGE} for the characters' dialogue (first line of each turn).
 - Use {FEEDBACK_LANGUAGE} for the translation (second line of each turn).
 - Use {LEARNER_LANGUAGE} for the scene and role descriptions.
+- Provide translations for the scene description and each role description, immediately following them.
 
 Formatting rules:
 
 1. Output the scene description:
    Scene: <one-line scene description in {LEARNER_LANGUAGE}>
+   → <translation of scene description in {FEEDBACK_LANGUAGE}>
 2. Output the two roles:
    Role A: <A's character description in {LEARNER_LANGUAGE}>
+   → <translation of A's role description in {FEEDBACK_LANGUAGE}>
    Role B: <B's character description in {LEARNER_LANGUAGE}>
+   → <translation of B's role description in {FEEDBACK_LANGUAGE}>
 3. Output the two voice types:
    Voice A: <A's voice type as male or female>
    Voice B: <B's voice type as male or female>
@@ -206,14 +210,16 @@ Formatting rules:
 Example (when {LEARNER_LANGUAGE} = English and {FEEDBACK_LANGUAGE} = Japanese):
 
 Scene: At a café
-Role A: A university student studying for exams.
-Role B: A barista who loves to chat with customers.
+→ カフェで
+Role A: A university student studying for exams
+→ 試験勉強をしている大学生
+Role B: A barista who loves to chat with customers
+→ お客さんと話すのが好きなバリスタ
 Voice A: female
 Voice B: male
 
 A: Do you have any new seasonal drinks today? | I'm in the mood for something sweet.
 → 今日のおすすめの季節限定ドリンクはありますか？ | 甘いものが飲みたい気分なんです。
-
 B: Yes! We have a maple cinnamon latte. | It's perfect for this chilly weather.
 → はい、メープルシナモンラテがありますよ。 | この肌寒い季節にぴったりです。
 ...
@@ -230,7 +236,9 @@ Make sure the format and language rules are followed strictly.
     debug_out(text)
     lines = text.splitlines()
     scene_title = ""
+    scene_translation = ""
     roles = {}
+    roles_translation = {}
     gender = {}
     voices = {}
     script = []
@@ -239,11 +247,20 @@ Make sure the format and language rules are followed strictly.
     while i < len(lines):
         line = lines[i].strip()
         if line.startswith("Scene:"):
-            scene_title = line[len("Scene:"):].strip()
+            scene_title = clean_text(line[len("Scene:"):].strip())
+            if i + 1 < len(lines) and lines[i + 1].startswith("→"):
+                scene_translation = clean_text(lines[i + 1][1:].strip())
+                i += 1
         elif line.startswith("Role A:"):
-            roles["A"] = line[len("Role A:"):].strip()
+            roles["A"] = clean_text(line[len("Role A:"):].strip())
+            if i + 1 < len(lines) and lines[i + 1].startswith("→"):
+                roles_translation["A"] = clean_text(lines[i + 1][1:].strip())
+                i += 1
         elif line.startswith("Role B:"):
-            roles["B"] = line[len("Role B:"):].strip()
+            roles["B"] = clean_text(line[len("Role B:"):].strip())
+            if i + 1 < len(lines) and lines[i + 1].startswith("→"):
+                roles_translation["B"] = clean_text(lines[i + 1][1:].strip())
+                i += 1
         elif line.startswith("Voice A:"):
             gender["A"] = line[len("Voice A:"):].strip()
         elif line.startswith("Voice B:"):
@@ -263,7 +280,9 @@ Make sure the format and language rules are followed strictly.
 
     scenario = {
         "scene": scene_title,
+        "scene_translation": scene_translation,
         "roles": roles,
+        "roles_translation": roles_translation,
         "voices": voices,
         "script": script,
     }
@@ -279,9 +298,9 @@ def main():
         pygame.mixer.init()
         scene = sys.argv[1] if len(sys.argv) > 1 else "at a café"
         scenario = generate_scenario(scene)
-        print(f'scene: {scenario["scene"]}')
-        print(f'role A: {scenario["roles"]["A"]}')
-        print(f'role B: {scenario["roles"]["B"]}')
+        print(f'scene: {scenario["scene"]} → {scenario["scene_translation"]}')
+        print(f'role A: {scenario["roles"]["A"]} → {scenario["roles_translation"]["A"]}')
+        print(f'role B: {scenario["roles"]["B"]} → {scenario["roles_translation"]["B"]}')
         repl(scenario)
     except KeyboardInterrupt:
         print("\nExiting repeat-chat-ai")
