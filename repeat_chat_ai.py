@@ -207,23 +207,27 @@ Formatting rules:
    Use "|" to split each natural sentence segment. Ensure each natural {LEARNER_LANGUAGE} segment strictly matches the corresponding translated segment in order.
 6. Start with A. Do not include explanations, commentary, or blank lines.
 
+Make sure the format and language rules are followed strictly.
 Example (when {LEARNER_LANGUAGE} = English and {FEEDBACK_LANGUAGE} = Japanese):
 
 Scene: At a café
 → カフェで
-Role A: A university student studying for exams
-→ 試験勉強をしている大学生
-Role B: A barista who loves to chat with customers
+Role A: A barista who loves to chat with customers
 → お客さんと話すのが好きなバリスタ
-Voice A: female
-Voice B: male
+Role B: A university student studying for exams
+→ 試験勉強をしている大学生
+Voice A: male
+Voice B: female
 
-A: Do you have any new seasonal drinks today? | I'm in the mood for something sweet.
-→ 今日のおすすめの季節限定ドリンクはありますか？ | 甘いものが飲みたい気分なんです。
-B: Yes! We have a maple cinnamon latte. | It's perfect for this chilly weather.
-→ はい、メープルシナモンラテがありますよ。 | この肌寒い季節にぴったりです。
+A: Hi there! | Studying hard today?
+→ こんにちは！ | 今日も一生懸命勉強ですね？
+B: Yeah, exams are coming up. | I needed a quiet spot and some caffeine.
+→ はい、試験が近いんです。 | 静かな場所とカフェインが必要で。
+A: You've come to the right place. | Want your usual latte?
+→ それならここがぴったりですね。 | いつものラテにしますか？
+B: Yes, please. | And maybe a muffin too.
+→ はい、お願いします。 | それとマフィンもください。
 ...
-Make sure the format and language rules are followed strictly.
 """)
 
     response = client.chat.completions.create(
